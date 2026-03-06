@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainyBite</title>
+    <!-- โหลด Tailwind CSS ผ่าน CDN สำหรับใช้จัดหน้าตาเว็บ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; }
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        #loader {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+<!-- Navbar -->
+<header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h1 class="text-2xl font-bold text-indigo-600 cursor-pointer hover:text-indigo-800 transition" onclick="loadHome()">
+            Brainy<span class="text-gray-800">Bite</span>
+        </h1>
+
+        <!-- Category Filter -->
+        <nav id="category-nav" class="flex gap-4 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+            <button onclick="loadHome()" class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 transition whitespace-nowrap">All</button>
+            <button onclick="filterByCategory('technology')" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium transition whitespace-nowrap">Technology</button>
+            <button onclick="filterByCategory('science')" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium transition whitespace-nowrap">Science</button>
+            <button onclick="filterByCategory('lifestyle')" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium transition whitespace-nowrap">Lifestyle</button>
+        </nav>
+    </div>
+</header>
+
+<!-- Main Content Area -->
+<main class="flex-grow max-w-6xl mx-auto px-4 py-8 w-full relative">
+
+    <!-- Loading Spinner -->
+    <div id="loader" class="absolute inset-0 z-50 flex items-center justify-center bg-gray-50/80 min-h-[50vh]">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+
+    <!-- Section 1: Article List (Grid) -->
+    <section id="article-list-view" class="block">
+        <div class="mb-6 flex justify-between items-end">
+            <h2 id="list-title" class="text-2xl font-bold text-gray-800">Latest Articles</h2>
+        </div>
+        <div id="articles-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- ข้อมูลบทความจะถูกสร้างที่นี่ด้วย JavaScript -->
+        </div>
+        <div id="empty-state" class="hidden text-center py-12 text-gray-500">
+            <p>No articles found.</p>
+        </div>
+    </section>
+
+    <!-- Section 2: Single Article Details -->
+    <section id="article-detail-view" class="hidden max-w-3xl mx-auto bg-white p-6 sm:p-10 rounded-2xl shadow-sm border border-gray-100">
+        <button onclick="loadHome()" class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 mb-6 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Articles
+        </button>
+
+        <div id="detail-content">
+            <!-- เนื้อหาบทความเดี่ยวจะถูกสร้างที่นี่ -->
+        </div>
+    </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="bg-gray-800 text-white py-6 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 text-center text-sm text-gray-400">
+        &copy; 2026 BrainyBite. All rights reserved.
+    </div>
+</footer>
+
+<script>
+    /* ==========================================
+       1. Configuration & Mock Data
+    ========================================== */
+
+    const USE_REAL_API = true;
+
+    const mockArticles = [
+        {
+            "id": 1,
+            "category": "technology",
+            "title": "aaa",
+            "description": "aaa",
+            "content": "a",
+            "thumbnail_url": null,
+            "published": "2026-03-06"
+        },
+        {
+            "id": 2,
+            "category": "science",
+            "title": "bbb",
+            "description": "bbb",
+            "content": "bbb",
+            "thumbnail_url": null,
+            "published": "2026-03-01"
+        },
+        {
+            "id": 3,
+            "category": "ccc",
+            "title": "ccc",
+            "description": "ccc",
+            "content": "ccc",
+            "thumbnail_url": null,
+            "published": "2026-02-28"
+        }
+    ];
+
+    /* ==========================================
+       2. API Service Functions
+    ========================================== */
+
+    // ดึงบทความทั้งหมด (/api/articles)
+    async function fetchArticles() {
+        if (USE_REAL_API) {
+            try {
+                const response = await fetch('/api/articles');
+                if (!response.ok) throw new Error('Network response was not ok');
+                return await response.json();
+            } catch (error) {
+                console.error("Failed to fetch articles:", error);
+                return [];
+            }
+        }
+        return new Promise(resolve => setTimeout(() => resolve(mockArticles), 400)); // จำลองดีเลย์
+    }
+
+    // ดึงบทความตาม Category
+    async function fetchArticlesByCategory(category) {
+        if (USE_REAL_API) {
+            try {
+                const response = await fetch(`/api/article/category/${category}`);
+                return await response.json();
+            } catch (error) {
+                console.error("Failed to fetch articles by category:", error);
+                return [];
+            }
+        }
+        return new Promise(resolve => setTimeout(() => {
+            resolve(mockArticles.filter(a => a.category === category));
+        }, 400));
+    }
+
+    // ดึงบทความเดียวตาม ID
+    async function fetchArticleById(id) {
+        if (USE_REAL_API) {
+            try {
+                const response = await fetch(`/api/article/${id}`);
+                return await response.json();
+            } catch (error) {
+                console.error("Failed to fetch article:", error);
+                return null;
+            }
+        }
+        return new Promise(resolve => setTimeout(() => {
+            resolve(mockArticles.find(a => a.id === parseInt(id)));
+        }, 300));
+    }
+
+    /* ==========================================
+       3. UI Rendering Logic
+    ========================================== */
+
+    const views = {
+        list: document.getElementById('article-list-view'),
+        detail: document.getElementById('article-detail-view'),
+        loader: document.getElementById('loader'),
+        grid: document.getElementById('articles-grid'),
+        empty: document.getElementById('empty-state'),
+        detailContent: document.getElementById('detail-content'),
+        listTitle: document.getElementById('list-title')
+    };
+
+    function showLoader(show) {
+        views.loader.style.display = show ? 'flex' : 'none';
+    }
+
+    function switchView(viewName) {
+        if (viewName === 'list') {
+            views.list.classList.remove('hidden');
+            views.detail.classList.add('hidden');
+        } else {
+            views.list.classList.add('hidden');
+            views.detail.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    function renderArticleCards(articles) {
+        views.grid.innerHTML = '';
+
+        if (!articles || articles.length === 0) {
+            views.empty.classList.remove('hidden');
+            return;
+        }
+
+        views.empty.classList.add('hidden');
+
+        articles.forEach(article => {
+            const fallbackImg = `https://ui-avatars.com/api/?name=${article.category}&background=random&size=400&font-size=0.3`;
+            const imageSrc = article.thumbnail_url || fallbackImg;
+
+            const date = new Date(article.published).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            const cardHtml = `
+                <article class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer flex flex-col h-full" onclick="openArticle(${article.id})">
+                    <div class="h-48 overflow-hidden bg-gray-100 relative">
+                        <img src="${imageSrc}" alt="${article.title}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" onerror="this.src='${fallbackImg}'">
+                        <span class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-xs font-semibold px-2.5 py-1 rounded-full text-indigo-700 uppercase tracking-wider shadow-sm">
+                            ${article.category}
+                        </span>
+                    </div>
+                    <div class="p-5 flex flex-col flex-grow">
+                        <p class="text-xs text-gray-500 mb-2">${date}</p>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2 leading-tight hover:text-indigo-600 transition">${article.title}</h3>
+                        <p class="text-gray-600 text-sm mb-4 line-clamp-3 flex-grow">${article.description}</p>
+                        <div class="text-indigo-600 text-sm font-medium mt-auto flex items-center gap-1">
+                            Read more
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </article>
+            `;
+            views.grid.insertAdjacentHTML('beforeend', cardHtml);
+        });
+    }
+
+    function renderSingleArticle(article) {
+        if (!article) {
+            views.detailContent.innerHTML = '<p class="text-center text-red-500 py-10">Article not found.</p>';
+            return;
+        }
+
+        const fallbackImg = `https://ui-avatars.com/api/?name=${article.category}&background=random&size=800&font-size=0.1`;
+        const imageSrc = article.thumbnail_url || fallbackImg;
+        const date = new Date(article.published).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const html = `
+            <div class="mb-6 flex items-center gap-3">
+                <span class="bg-indigo-100 text-indigo-800 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                    ${article.category}
+                </span>
+                <span class="text-sm text-gray-500">${date}</span>
+            </div>
+
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-6 leading-tight">${article.title}</h1>
+
+            <div class="mb-8 w-full h-64 sm:h-96 rounded-xl overflow-hidden bg-gray-100">
+                <img src="${imageSrc}" alt="${article.title}" class="w-full h-full object-cover" onerror="this.src='${fallbackImg}'">
+            </div>
+
+            <div class="prose prose-indigo max-w-none text-gray-700 leading-relaxed text-lg">
+                ${article.content}
+            </div>
+        `;
+
+        views.detailContent.innerHTML = html;
+    }
+
+    function updateNavActiveState(categoryStr) {
+        const nav = document.getElementById('category-nav');
+        const buttons = nav.querySelectorAll('button');
+
+        buttons.forEach(btn => {
+            btn.className = "px-3 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium transition whitespace-nowrap"; // Reset
+
+            if (
+                (categoryStr === 'all' && btn.innerText.toLowerCase() === 'all') ||
+                (btn.innerText.toLowerCase() === categoryStr.toLowerCase())
+            ) {
+                btn.className = "px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 transition whitespace-nowrap"; // Active
+            }
+        });
+    }
+
+    /* ==========================================
+       4. Application Actions
+    ========================================== */
+
+    async function loadHome() {
+        showLoader(true);
+        updateNavActiveState('all');
+        views.listTitle.innerText = "Latest Articles";
+
+        const articles = await fetchArticles();
+        renderArticleCards(articles);
+
+        switchView('list');
+        showLoader(false);
+    }
+
+    async function filterByCategory(category) {
+        showLoader(true);
+        updateNavActiveState(category);
+        views.listTitle.innerText = `Category: ${category.charAt(0).toUpperCase() + category.slice(1)}`;
+
+        const articles = await fetchArticlesByCategory(category);
+        renderArticleCards(articles);
+
+        switchView('list');
+        showLoader(false);
+    }
+
+    async function openArticle(id) {
+        showLoader(true);
+
+        const article = await fetchArticleById(id);
+        renderSingleArticle(article);
+
+        switchView('detail');
+        showLoader(false);
+    }
+
+    window.onload = () => {
+        loadHome();
+    };
+
+</script>
+</body>
+</html>
